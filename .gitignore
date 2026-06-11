@@ -1,0 +1,36 @@
+# ----------------------------------------------------------------------------
+# Intel/Altera Quartus Prime build artifacts (regenerated on compile)
+# ----------------------------------------------------------------------------
+
+# Compilation database / incremental compile
+db/
+incremental_db/
+
+# Compiler output (programming files, reports, chains)
+output_files/
+
+# Simulation models / outputs generated from IP
+*_sim/
+simulation/
+
+# Generated assignment defaults
+*assignment_defaults.qdf
+
+# Restore / archive metadata (from .qar restore)
+*.restore.rpt
+qar_info.json
+
+# Misc Quartus generated files
+*.qws
+*.rpt
+*.summary
+*.smsg
+*.jdi
+*.pin
+*.done
+*.bak
+*.orig
+
+# OS noise
+Thumbs.db
+.DS_Store
