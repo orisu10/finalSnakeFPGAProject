@@ -149,6 +149,34 @@ agreement for further details.
 	(text "VCC" (rect 168 7 188 17)(font "Arial" (font_size 6)))
 )
 (pin
+	(input)
+	(rect 360 232 528 248)
+	(text "INPUT" (rect 125 0 153 10)(font "Arial" (font_size 6)))
+	(text "keyPad[3..0]" (rect 5 0 75 12)(font "Arial" ))
+	(pt 168 8)
+	(drawing
+		(line (pt 84 12)(pt 109 12))
+		(line (pt 84 4)(pt 109 4))
+		(line (pt 113 8)(pt 168 8))
+		(line (pt 84 12)(pt 84 4))
+		(line (pt 109 4)(pt 113 8))
+		(line (pt 109 12)(pt 113 8))
+	)
+	(text "VCC" (rect 128 7 148 17)(font "Arial" (font_size 6)))
+)
+(connector
+	(text "keyPad[3..0]" (rect 532 224 592 241)(font "Intel Clear" ))
+	(pt 528 240)
+	(pt 580 240)
+	(bus)
+)
+(connector
+	(text "keyPad[3..0]" (rect 1196 408 1256 425)(font "Intel Clear" ))
+	(pt 1288 424)
+	(pt 1264 424)
+	(bus)
+)
+(pin
 	(output)
 	(rect 1648 320 1824 336)
 	(text "OUTPUT" (rect 1 0 39 10)(font "Arial" (font_size 6)))
@@ -163,6 +191,88 @@ agreement for further details.
 		(line (pt 82 8)(pt 78 12))
 		(line (pt 78 12)(pt 82 8))
 	)
+)
+(pin
+	(output)
+	(rect 1648 360 1824 376)
+	(text "OUTPUT" (rect 1 0 39 10)(font "Arial" (font_size 6)))
+	(text "score[7..0]" (rect 90 0 153 17)(font "Intel Clear" ))
+	(pt 0 8)
+	(drawing
+		(line (pt 0 8)(pt 52 8))
+		(line (pt 52 4)(pt 78 4))
+		(line (pt 52 12)(pt 78 12))
+		(line (pt 52 12)(pt 52 4))
+		(line (pt 78 4)(pt 82 8))
+		(line (pt 82 8)(pt 78 12))
+		(line (pt 78 12)(pt 82 8))
+	)
+)
+(connector
+	(text "score[7..0]" (rect 1540 328 1600 345)(font "Intel Clear" ))
+	(pt 1536 344)
+	(pt 1592 344)
+	(bus)
+)
+(connector
+	(text "score[7..0]" (rect 1600 360 1660 377)(font "Intel Clear" ))
+	(pt 1648 368)
+	(pt 1600 368)
+	(bus)
+)
+(pin
+	(output)
+	(rect 1648 400 1824 416)
+	(text "OUTPUT" (rect 1 0 39 10)(font "Arial" (font_size 6)))
+	(text "soundSelect[3..0]" (rect 90 0 180 17)(font "Intel Clear" ))
+	(pt 0 8)
+	(drawing
+		(line (pt 0 8)(pt 52 8))
+		(line (pt 52 4)(pt 78 4))
+		(line (pt 52 12)(pt 78 12))
+		(line (pt 52 12)(pt 52 4))
+		(line (pt 78 4)(pt 82 8))
+		(line (pt 82 8)(pt 78 12))
+		(line (pt 78 12)(pt 82 8))
+	)
+)
+(pin
+	(output)
+	(rect 1648 440 1824 456)
+	(text "OUTPUT" (rect 1 0 39 10)(font "Arial" (font_size 6)))
+	(text "soundTrigger" (rect 90 0 180 17)(font "Intel Clear" ))
+	(pt 0 8)
+	(drawing
+		(line (pt 0 8)(pt 52 8))
+		(line (pt 52 4)(pt 78 4))
+		(line (pt 52 12)(pt 78 12))
+		(line (pt 52 12)(pt 52 4))
+		(line (pt 78 4)(pt 82 8))
+		(line (pt 82 8)(pt 78 12))
+		(line (pt 78 12)(pt 82 8))
+	)
+)
+(connector
+	(text "soundSelect[3..0]" (rect 1536 344 1626 361)(font "Intel Clear" ))
+	(pt 1536 360)
+	(pt 1600 360)
+	(bus)
+)
+(connector
+	(text "soundSelect[3..0]" (rect 1600 400 1690 417)(font "Intel Clear" ))
+	(pt 1648 408)
+	(pt 1600 408)
+	(bus)
+)
+(connector
+	(text "soundTrigger" (rect 1536 360 1626 377)(font "Intel Clear" ))
+	(pt 1536 376)
+	(pt 1600 376)
+)
+(connector
+	(text "soundTrigger" (rect 1600 440 1690 457)(font "Intel Clear" ))
+	(pt 1648 448)
+	(pt 1600 448)
 )
 (pin
 	(output)
@@ -234,6 +344,13 @@ agreement for further details.
 		(line (pt 0 128)(pt 16 128))
 	)
 	(port
+		(pt 0 144)
+		(input)
+		(text "keyPad[3..0]" (rect 0 0 68 12)(font "Arial" ))
+		(text "keyPad[3..0]" (rect 21 139 89 151)(font "Arial" ))
+		(line (pt 0 144)(pt 16 144)(line_width 3))
+	)
+	(port
 		(pt 248 32)
 		(output)
 		(text "drawingRequest" (rect 0 0 77 12)(font "Arial" ))
@@ -246,6 +363,27 @@ agreement for further details.
 		(text "RGBout[7..0]" (rect 0 0 64 12)(font "Arial" ))
 		(text "RGBout[7..0]" (rect 173 43 237 55)(font "Arial" ))
 		(line (pt 248 48)(pt 232 48)(line_width 3))
+	)
+	(port
+		(pt 248 64)
+		(output)
+		(text "score[7..0]" (rect 0 0 64 12)(font "Arial" ))
+		(text "score[7..0]" (rect 173 59 237 71)(font "Arial" ))
+		(line (pt 248 64)(pt 232 64)(line_width 3))
+	)
+	(port
+		(pt 248 80)
+		(output)
+		(text "soundSelect[3..0]" (rect 0 0 90 12)(font "Arial" ))
+		(text "soundSelect[3..0]" (rect 147 75 237 87)(font "Arial" ))
+		(line (pt 248 80)(pt 232 80)(line_width 3))
+	)
+	(port
+		(pt 248 96)
+		(output)
+		(text "soundTrigger" (rect 0 0 70 12)(font "Arial" ))
+		(text "soundTrigger" (rect 167 91 237 103)(font "Arial" ))
+		(line (pt 248 96)(pt 232 96))
 	)
 	(drawing
 		(rectangle (rect 16 16 232 160))
@@ -327,12 +465,12 @@ agreement for further details.
 	)
 	(parameter
 		"OBJECT_WIDTH_X"
-		"512"
+		"640"
 		""
 		(type "PARAMETER_SIGNED_DEC")	)
 	(parameter
 		"OBJECT_HEIGHT_Y"
-		"256"
+		"480"
 		""
 		(type "PARAMETER_SIGNED_DEC")	)
 	(parameter

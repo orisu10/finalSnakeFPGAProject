@@ -39,8 +39,8 @@ begin
 	end
 	
 	else begin
-		if (smileyDrawingRequest == 1'b1 )   
-			RGBOut <= smileyRGB;  //first priority 
+		if (1'b0)   // smiley removed (deprecated) - score number (Box) is now top priority
+			RGBOut <= smileyRGB;  // dead branch, kept to preserve the port
 		 
 //--- add logic for box here ------------------------------------------------------		
 	

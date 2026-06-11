@@ -30,6 +30,8 @@ qar_info.json
 *.done
 *.bak
 *.orig
+*.qarlog
+c5_pin_model_dump.txt
 
 # OS noise
 Thumbs.db

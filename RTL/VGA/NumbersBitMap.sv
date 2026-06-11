@@ -10,10 +10,10 @@ module NumbersBitMap	(
 					input		logic	resetN,
 					input 	logic	[10:0] offsetX,// offset from top left  position 
 					input 	logic	[10:0] offsetY,
-					input		logic	InsideRectangle, //input that the pixel is within a bracket 
-					input 	logic	[3:0] digit, // digit to display
-					
-					output	logic				drawingRequest, //output that the pixel should be dispalyed 
+					input		logic	InsideRectangle, //input that the pixel is within a bracket
+					input 	logic	[7:0] digit, // two BCD digits to display: {tens[7:4], ones[3:0]}
+
+					output	logic				drawingRequest, //output that the pixel should be dispalyed
 					output	logic	[7:0]		RGBout
 );
 
@@ -25,8 +25,23 @@ localparam logic[12:0] digit_location_MIF = OBJECT_WIDTH_X*OBJECT_WIDTH_Y;
 // generating a number bitmap from a MIF file
 logic [12:0] address  ;
 logic  color  ;
- 
-assign address = ((digit_location_MIF*digit)+((offsetY>>1)*OBJECT_WIDTH_X + (offsetX>>1))); //***Double size
+
+// Each digit is drawn double-size = 32 px wide.  The left 32 px of the box show
+// the tens digit, the right 32 px show the ones digit.
+logic [3:0]  curDigit ;
+logic [10:0] localX ;
+always_comb begin
+	if (offsetX < 11'd32) begin
+		curDigit = digit[7:4] ; // tens
+		localX   = offsetX ;
+	end
+	else begin
+		curDigit = digit[3:0] ; // ones
+		localX   = offsetX - 11'd32 ;
+	end
+end
+
+assign address = ((digit_location_MIF*curDigit)+((offsetY>>1)*OBJECT_WIDTH_X + (localX>>1))); //***Double size
 //assign address = ((digit_location_MIF*digit)+((offsetY)*OBJECT_WIDTH_X + (offsetX))); //Origimal size of digit
 	//***comment the previous line and adjust the square object to double size as the size of a double bitmap
 
