@@ -37,7 +37,7 @@ The game runs entirely in hardware on the FPGA. There is no processor and no sof
 
 **Signal flow in one sentence:** the VGA controller asks "what color is pixel (X,Y)?", every object answers, the **mux** picks the highest‑priority answer, and that color is sent to the monitor.
 
-Top‑level schematic: `RTL/VGA/TOP_VGA_SNAKE.bdf`. The whole game board lives in one module: **`RTL/VGA/HartsMatrixBitMap.sv`** (it kept its old name so the schematic wiring didn't have to change).
+Top‑level schematic: `RTL/VGA/TOP_VGA_SNAKE.bdf`. The whole game board lives in one module: **`RTL/VGA/SnakeBoard.sv`**, wrapped by the sheet **`RTL/VGA/SnakeDisplay.bdf`** (these were renamed from the skeleton's `HartsMatrixBitMap.sv` / `HART_DISPLAY.bdf` to read clearly).
 
 ---
 
@@ -151,7 +151,7 @@ This is why the body appears to flow smoothly around corners: the head paints a 
             2  (down)
 ```
 
-The keypad decoder outputs `keyPad[3:0]` = the **last number key pressed**, which is routed into the board. The board decodes it into a direction and applies it on the next tick. Two safety rules:
+The keypad decoder outputs `keyPad[3:0]` = the **last number key pressed**, which is routed into the board (it arrives on the board's input port `dirKey`). The board decodes it into a direction and applies it on the next tick. Two safety rules:
 
 1. **Only 8/2/4/6 change direction** — any other key is ignored, so the snake keeps going.
 2. **No 180° reversal** — e.g. while moving right you cannot instantly choose left (that would fold the snake back into its own neck). The reversed request is dropped and the snake keeps its current heading.
@@ -260,7 +260,7 @@ The starting point was a Technion demo: a bouncing "smiley" and a fixed matrix o
 
 | Area | Original skeleton | Now (Slimming Snake) |
 |------|-------------------|----------------------|
-| `HartsMatrixBitMap.sv` | 16×8 matrix of heart sprites, cleared on hit | **20×15 game board**: snake list + food/snake grids + movement + rendering |
+| `SnakeBoard.sv` (was `HartsMatrixBitMap.sv`) | 16×8 matrix of heart sprites, cleared on hit | **20×15 game board**: snake list + food/snake grids + movement + rendering |
 | Board geometry | small box, offset on screen | full‑screen **20×15** board at the origin (set via schematic parameters, no rewiring) |
 | Player | smiley with bouncing‑ball physics | **grid‑stepped snake** driven by the game tick |
 | Control | Enter / 8 keys nudging the smiley | **8 / 2 / 4 / 6** keypad steering with anti‑reverse |

@@ -1,12 +1,19 @@
 // ===========================================================================
-// Snake board  (Slimming Snake project, Spring 2026)            STEP 6
+// SnakeBoard  (Slimming Snake project, Spring 2026)            STEP 6
 // ---------------------------------------------------------------------------
-// Board: 20 x 15 grid of 32x32 px tiles (20*32=640, 15*32=480).
+// The whole game lives here.  It draws and runs a 20 x 15 grid of 32x32 px
+// tiles that fills the screen (20*32 = 640, 15*32 = 480).
+//
+// (Formerly "HartsMatrixBitMap" - the heart-matrix block from the skeleton.
+//  Same module footprint, repurposed into the snake board.)
 //
 // Data model:
-//   * snakeCol[i]/snakeRow[i] + length : the ordered body (a shift register).
-//   * foodGrid  : apple / cake cells (separate from the snake).
-//   * snakeGrid : head / body type per cell, for rendering & collision.
+//   * snakeCol[i]/snakeRow[i] + snakeLen : the ordered body, as a shift
+//     register.  index 0 = head; movement shifts every cell into the place of
+//     the cell in front of it and advances the head one tile.
+//   * foodGrid  : apple / cake cells, kept SEPARATE from the snake so the
+//     snake gliding over food does not erase it.
+//   * snakeGrid : head / body marker per cell, for O(1) render & collision.
 //
 // Control: 8 = up, 2 = down, 4 = left, 6 = right; 180-degree turns rejected.
 //
@@ -18,7 +25,7 @@
 //     the snake gradually gets faster (down to a floor).
 //   * WIN: slimming down to the minimum length wins the game.
 //   * TWO-DIGIT score on the `score[7:0]` output ({tens, ones}).
-//   * soundCode[2:0] tells the audio block which of 4 sounds to play:
+//   * soundSelect[3:0] tells the audio block which of 4 sounds to play:
 //       1 = apple, 2 = cake, 3 = die, 4 = win   (0 = silent).
 //
 // Game FSM: INIT -> PLAY -> {OVER | WIN} -> auto-restart.
@@ -26,27 +33,27 @@
 // (c) Technion IIT, Department of Electrical Engineering 2026
 // ===========================================================================
 
-module	HartsMatrixBitMap	(
+module	SnakeBoard	(
 					input	logic	clk,
 					input	logic	resetN,
-					input	logic	[10:0] offsetX,
-					input	logic	[10:0] offsetY,
-					input	logic	InsideRectangle,
-					input	logic	random_hart,            // unused (interface compatibility)
-					input	logic	collision_Smiley_Hart,  // unused (interface compatibility)
-					input	logic	[3:0] keyPad,           // last number key (8/2/4/6 steer)
+					input	logic	[10:0] pixelX,           // current scan pixel X (screen coordinate)
+					input	logic	[10:0] pixelY,           // current scan pixel Y (screen coordinate)
+					input	logic	insideBoard,            // high while the pixel is inside the board area
+					input	logic	unusedRandom,           // legacy skeleton port, not used
+					input	logic	unusedCollision,        // legacy skeleton port, not used
+					input	logic	[3:0] dirKey,           // last number key (8/2/4/6 steer the snake)
 
 					output	logic	[7:0] score,            // {tens[7:4], ones[3:0]} for the display
 					output	logic	[3:0] soundSelect,      // melody index for the AUDIO block (per event)
 					output	logic	soundTrigger,           // short pulse = "start that melody"
-					output	logic	drawingRequest,
-					output	logic	[7:0] RGBout
+					output	logic	drawingRequest,         // high = this pixel is ours (opaque)
+					output	logic	[7:0] RGBout            // tile color for this pixel
  ) ;
 
 localparam logic [7:0] TRANSPARENT_ENCODING = 8'hFF ;
 
 // ---- board geometry --------------------------------------------------------
-localparam int TILE_BITS = 5 ;
+localparam int TILE_BITS = 5 ;   // 32 px tile = 2^5, so a tile index = pixel >> 5
 localparam int NUM_COLS  = 20 ;
 localparam int NUM_ROWS  = 15 ;
 
@@ -82,82 +89,82 @@ localparam logic [7:0] COLOR_DEAD  = 8'h92 ; // gray  (crashed snake)
 localparam logic [7:0] COLOR_WIN   = 8'h1F ; // cyan  (winning snake)
 
 // ---- state -----------------------------------------------------------------
-logic [1:0]  foodGrid  [0:NUM_ROWS-1][0:NUM_COLS-1] ;
-logic [1:0]  snakeGrid [0:NUM_ROWS-1][0:NUM_COLS-1] ;
-logic [4:0]  snakeCol  [0:MAX_LEN-1] ;
-logic [3:0]  snakeRow  [0:MAX_LEN-1] ;
-logic [5:0]  length ;
-logic [1:0]  dir ;
+logic [1:0]  foodGrid  [0:NUM_ROWS-1][0:NUM_COLS-1] ; // apple / cake per cell
+logic [1:0]  snakeGrid [0:NUM_ROWS-1][0:NUM_COLS-1] ; // head / body per cell
+logic [4:0]  snakeCol  [0:MAX_LEN-1] ;                // body column list (0 = head)
+logic [3:0]  snakeRow  [0:MAX_LEN-1] ;                // body row list    (0 = head)
+logic [5:0]  snakeLen ;
+logic [1:0]  curDir ;
 logic [1:0]  gameState ;
 logic [3:0]  scoreOnes, scoreTens ;
 logic [22:0] tickCnt ;
 logic [22:0] tickThreshold ;     // current step interval (shrinks as you eat apples)
-logic [26:0] holdCnt ;           // game-over / win freeze timer
+logic [26:0] freezeCnt ;         // game-over / win freeze timer
 logic [27:0] cakeSpawnCnt ;
 logic [3:0]  cakeCount ;
 logic        applePending, cakeSpawnPending ;
 logic [15:0] lfsr ;
-logic [12:0] trigCnt ;
+logic [12:0] soundPulseCnt ;
 
 assign score = {scoreTens, scoreOnes} ;
 
-// ---- which cell does the current pixel fall in -----------------------------
-logic [4:0] colIdx ;
-logic [3:0] rowIdx ;
-assign colIdx = offsetX[TILE_BITS+4 : TILE_BITS] ;
-assign rowIdx = offsetY[TILE_BITS+3 : TILE_BITS] ;
+// ---- which tile does the current pixel fall in -----------------------------
+logic [4:0] tileCol ;
+logic [3:0] tileRow ;
+assign tileCol = pixelX[TILE_BITS+4 : TILE_BITS] ;
+assign tileRow = pixelY[TILE_BITS+3 : TILE_BITS] ;
 
 // ---- keypad -> requested direction (with anti-reverse) ---------------------
-logic [1:0] reqDir ;
-logic       reqIsDir ;
+logic [1:0] keyDir ;
+logic       keyIsDir ;
 always_comb begin
-	reqIsDir = 1'b1 ;
-	unique case (keyPad)
-		4'd8    : reqDir = DIR_UP ;
-		4'd2    : reqDir = DIR_DOWN ;
-		4'd4    : reqDir = DIR_LEFT ;
-		4'd6    : reqDir = DIR_RIGHT ;
-		default : begin reqDir = dir ; reqIsDir = 1'b0 ; end
+	keyIsDir = 1'b1 ;
+	unique case (dirKey)
+		4'd8    : keyDir = DIR_UP ;
+		4'd2    : keyDir = DIR_DOWN ;
+		4'd4    : keyDir = DIR_LEFT ;
+		4'd6    : keyDir = DIR_RIGHT ;
+		default : begin keyDir = curDir ; keyIsDir = 1'b0 ; end
 	endcase
 end
-logic isReverse ;
+logic wouldReverse ;
 always_comb begin
-	isReverse = (reqDir == DIR_UP    && dir == DIR_DOWN ) ||
-	            (reqDir == DIR_DOWN  && dir == DIR_UP   ) ||
-	            (reqDir == DIR_LEFT  && dir == DIR_RIGHT) ||
-	            (reqDir == DIR_RIGHT && dir == DIR_LEFT ) ;
+	wouldReverse = (keyDir == DIR_UP    && curDir == DIR_DOWN ) ||
+	               (keyDir == DIR_DOWN  && curDir == DIR_UP   ) ||
+	               (keyDir == DIR_LEFT  && curDir == DIR_RIGHT) ||
+	               (keyDir == DIR_RIGHT && curDir == DIR_LEFT ) ;
 end
-logic [1:0] newDir ;
-assign newDir = (reqIsDir && !isReverse) ? reqDir : dir ;
+logic [1:0] nextDir ;
+assign nextDir = (keyIsDir && !wouldReverse) ? keyDir : curDir ;
 
 // ---- next head cell + collisions -------------------------------------------
-logic [4:0] nextCol ;
-logic [3:0] nextRow ;
+logic [4:0] headNextCol ;
+logic [3:0] headNextRow ;
 logic       wallHit, selfHit, collision ;
 always_comb begin
-	nextCol = snakeCol[0] ;
-	nextRow = snakeRow[0] ;
-	unique case (newDir)
-		DIR_RIGHT : nextCol = (snakeCol[0] == NUM_COLS-1) ? snakeCol[0] : snakeCol[0] + 5'd1 ;
-		DIR_LEFT  : nextCol = (snakeCol[0] == 5'd0)       ? snakeCol[0] : snakeCol[0] - 5'd1 ;
-		DIR_DOWN  : nextRow = (snakeRow[0] == NUM_ROWS-1) ? snakeRow[0] : snakeRow[0] + 4'd1 ;
-		DIR_UP    : nextRow = (snakeRow[0] == 4'd0)       ? snakeRow[0] : snakeRow[0] - 4'd1 ;
+	headNextCol = snakeCol[0] ;
+	headNextRow = snakeRow[0] ;
+	unique case (nextDir)
+		DIR_RIGHT : headNextCol = (snakeCol[0] == NUM_COLS-1) ? snakeCol[0] : snakeCol[0] + 5'd1 ;
+		DIR_LEFT  : headNextCol = (snakeCol[0] == 5'd0)       ? snakeCol[0] : snakeCol[0] - 5'd1 ;
+		DIR_DOWN  : headNextRow = (snakeRow[0] == NUM_ROWS-1) ? snakeRow[0] : snakeRow[0] + 4'd1 ;
+		DIR_UP    : headNextRow = (snakeRow[0] == 4'd0)       ? snakeRow[0] : snakeRow[0] - 4'd1 ;
 	endcase
 end
 always_comb begin
-	wallHit = (newDir == DIR_RIGHT && snakeCol[0] == NUM_COLS-1) ||
-	          (newDir == DIR_LEFT  && snakeCol[0] == 5'd0)       ||
-	          (newDir == DIR_DOWN  && snakeRow[0] == NUM_ROWS-1) ||
-	          (newDir == DIR_UP    && snakeRow[0] == 4'd0)       ;
+	wallHit = (nextDir == DIR_RIGHT && snakeCol[0] == NUM_COLS-1) ||
+	          (nextDir == DIR_LEFT  && snakeCol[0] == 5'd0)       ||
+	          (nextDir == DIR_DOWN  && snakeRow[0] == NUM_ROWS-1) ||
+	          (nextDir == DIR_UP    && snakeRow[0] == 4'd0)       ;
 	selfHit = !wallHit &&
-	          (snakeGrid[nextRow][nextCol] == S_BODY) &&
-	          !(nextCol == snakeCol[length-1] && nextRow == snakeRow[length-1]) ;
+	          (snakeGrid[headNextRow][headNextCol] == S_BODY) &&
+	          !(headNextCol == snakeCol[snakeLen-1] && headNextRow == snakeRow[snakeLen-1]) ;
 	collision = wallHit || selfHit ;
 end
 
 logic eatApple, eatCake ;
-assign eatApple = (foodGrid[nextRow][nextCol] == F_APPLE) ;
-assign eatCake  = (foodGrid[nextRow][nextCol] == F_CAKE) ;
+assign eatApple = (foodGrid[headNextRow][headNextCol] == F_APPLE) ;
+assign eatCake  = (foodGrid[headNextRow][headNextCol] == F_CAKE) ;
 
 // ---- event pulses (combinational, true for the one movement clock) ---------
 logic tickNow, appleEatNow, cakeEatNow, dieNow, winNow ;
@@ -165,19 +172,19 @@ assign tickNow     = (gameState == ST_PLAY) && (tickCnt >= tickThreshold - 23'd1
 assign appleEatNow = tickNow && !collision && eatApple ;
 assign cakeEatNow  = tickNow && !collision && eatCake ;
 assign dieNow      = tickNow && collision ;
-assign winNow      = appleEatNow && (length == 6'(MIN_LEN + 1)) ; // this apple reaches the minimum
+assign winNow      = appleEatNow && (snakeLen == 6'(MIN_LEN + 1)) ; // this apple reaches the minimum
 
 // ---- random free cell from the LFSR ----------------------------------------
-logic [4:0] candCol, candColSafe ;
-logic [3:0] candRow, candRowSafe ;
-logic       candValid ;
-assign candCol     = lfsr[4:0] ;
-assign candRow     = lfsr[11:8] ;
-assign candColSafe = (candCol < NUM_COLS) ? candCol : 5'd0 ;
-assign candRowSafe = (candRow < NUM_ROWS) ? candRow : 4'd0 ;
-assign candValid   = (candCol < NUM_COLS) && (candRow < NUM_ROWS) &&
-                     (snakeGrid[candRowSafe][candColSafe] == S_EMPTY) &&
-                     (foodGrid [candRowSafe][candColSafe] == F_EMPTY) ;
+logic [4:0] randCol, randColSafe ;
+logic [3:0] randRow, randRowSafe ;
+logic       cellIsFree ;
+assign randCol     = lfsr[4:0] ;
+assign randRow     = lfsr[11:8] ;
+assign randColSafe = (randCol < NUM_COLS) ? randCol : 5'd0 ;
+assign randRowSafe = (randRow < NUM_ROWS) ? randRow : 4'd0 ;
+assign cellIsFree  = (randCol < NUM_COLS) && (randRow < NUM_ROWS) &&
+                     (snakeGrid[randRowSafe][randColSafe] == S_EMPTY) &&
+                     (foodGrid [randRowSafe][randColSafe] == F_EMPTY) ;
 
 // ===========================================================================
 // Game update
@@ -187,12 +194,12 @@ begin
 	if(!resetN) begin
 		gameState <= ST_INIT ;
 		tickCnt   <= 23'd0 ;
-		holdCnt   <= 27'd0 ;
-		dir       <= DIR_RIGHT ;
-		lfsr         <= 16'hACE1 ;
-		soundSelect  <= 4'd0 ;
-		soundTrigger <= 1'b0 ;
-		trigCnt      <= 13'd0 ;
+		freezeCnt <= 27'd0 ;
+		curDir    <= DIR_RIGHT ;
+		lfsr          <= 16'hACE1 ;
+		soundSelect   <= 4'd0 ;
+		soundTrigger  <= 1'b0 ;
+		soundPulseCnt <= 13'd0 ;
 	end
 	else begin
 		lfsr <= {lfsr[14:0], lfsr[15] ^ lfsr[13] ^ lfsr[12] ^ lfsr[10]} ;
@@ -200,11 +207,11 @@ begin
 		// ---- pick the melody on an event and emit a short start pulse -------
 		// soundSelect is HELD (changes only on a new event) so it stays stable
 		// while the chosen melody plays; soundTrigger is a short start pulse.
-		if      (winNow)      begin soundSelect <= MEL_WIN ;   soundTrigger <= 1'b1 ; trigCnt <= 13'(TRIG_WIDTH) ; end
-		else if (dieNow)      begin soundSelect <= MEL_DIE ;   soundTrigger <= 1'b1 ; trigCnt <= 13'(TRIG_WIDTH) ; end
-		else if (appleEatNow) begin soundSelect <= MEL_APPLE ; soundTrigger <= 1'b1 ; trigCnt <= 13'(TRIG_WIDTH) ; end
-		else if (cakeEatNow)  begin soundSelect <= MEL_CAKE ;  soundTrigger <= 1'b1 ; trigCnt <= 13'(TRIG_WIDTH) ; end
-		else if (trigCnt != 13'd0) trigCnt <= trigCnt - 13'd1 ;
+		if      (winNow)      begin soundSelect <= MEL_WIN ;   soundTrigger <= 1'b1 ; soundPulseCnt <= 13'(TRIG_WIDTH) ; end
+		else if (dieNow)      begin soundSelect <= MEL_DIE ;   soundTrigger <= 1'b1 ; soundPulseCnt <= 13'(TRIG_WIDTH) ; end
+		else if (appleEatNow) begin soundSelect <= MEL_APPLE ; soundTrigger <= 1'b1 ; soundPulseCnt <= 13'(TRIG_WIDTH) ; end
+		else if (cakeEatNow)  begin soundSelect <= MEL_CAKE ;  soundTrigger <= 1'b1 ; soundPulseCnt <= 13'(TRIG_WIDTH) ; end
+		else if (soundPulseCnt != 13'd0) soundPulseCnt <= soundPulseCnt - 13'd1 ;
 		else soundTrigger <= 1'b0 ;
 
 		case (gameState)
@@ -212,10 +219,10 @@ begin
 		// -- load the starting board ----------------------------------------
 		ST_INIT : begin
 			tickCnt          <= 23'd0 ;
-			holdCnt          <= 27'd0 ;
+			freezeCnt        <= 27'd0 ;
 			cakeSpawnCnt     <= 28'd0 ;
-			dir              <= DIR_RIGHT ;
-			length           <= 6'(INIT_LEN) ;
+			curDir           <= DIR_RIGHT ;
+			snakeLen         <= 6'(INIT_LEN) ;
 			tickThreshold    <= 23'(TICK_BASE) ;
 			scoreOnes        <= 4'd0 ;
 			scoreTens        <= 4'd0 ;
@@ -252,13 +259,13 @@ begin
 				tickCnt <= 23'd0 ;
 				if (collision) begin
 					gameState <= ST_OVER ;
-					holdCnt   <= 27'd0 ;
+					freezeCnt <= 27'd0 ;
 				end
 				else begin
-					dir <= newDir ;
+					curDir <= nextDir ;
 
 					if (eatApple) begin
-						foodGrid[nextRow][nextCol] <= F_EMPTY ;
+						foodGrid[headNextRow][headNextCol] <= F_EMPTY ;
 						applePending <= 1'b1 ;
 						// two-digit score++
 						if (scoreOnes == 4'd9) begin
@@ -273,7 +280,7 @@ begin
 							tickThreshold <= 23'(TICK_MIN) ;
 					end
 					else if (eatCake) begin
-						foodGrid[nextRow][nextCol] <= F_EMPTY ;
+						foodGrid[headNextRow][headNextCol] <= F_EMPTY ;
 						cakeCount <= cakeCount - 4'd1 ;
 					end
 
@@ -284,38 +291,38 @@ begin
 						snakeCol[i] <= snakeCol[i-1] ;
 						snakeRow[i] <= snakeRow[i-1] ;
 					end
-					snakeCol[0] <= nextCol ;
-					snakeRow[0] <= nextRow ;
+					snakeCol[0] <= headNextCol ;
+					snakeRow[0] <= headNextRow ;
 
 					// tail handling depends on what was eaten
-					if (eatCake && length < MAX_LEN) begin
-						length <= length + 6'd1 ;                       // grow
+					if (eatCake && snakeLen < MAX_LEN) begin
+						snakeLen <= snakeLen + 6'd1 ;                       // grow
 					end
-					else if (eatApple && length > MIN_LEN) begin
-						length <= length - 6'd1 ;                       // slim
-						snakeGrid[snakeRow[length-1]][snakeCol[length-1]] <= S_EMPTY ;
-						snakeGrid[snakeRow[length-2]][snakeCol[length-2]] <= S_EMPTY ;
-						if (length == 6'(MIN_LEN + 1)) begin            // reached minimum -> WIN
+					else if (eatApple && snakeLen > MIN_LEN) begin
+						snakeLen <= snakeLen - 6'd1 ;                       // slim
+						snakeGrid[snakeRow[snakeLen-1]][snakeCol[snakeLen-1]] <= S_EMPTY ;
+						snakeGrid[snakeRow[snakeLen-2]][snakeCol[snakeLen-2]] <= S_EMPTY ;
+						if (snakeLen == 6'(MIN_LEN + 1)) begin            // reached minimum -> WIN
 							gameState <= ST_WIN ;
-							holdCnt   <= 27'd0 ;
+							freezeCnt <= 27'd0 ;
 						end
 					end
 					else begin
-						snakeGrid[snakeRow[length-1]][snakeCol[length-1]] <= S_EMPTY ;
+						snakeGrid[snakeRow[snakeLen-1]][snakeCol[snakeLen-1]] <= S_EMPTY ;
 					end
 
-					snakeGrid[nextRow][nextCol] <= S_HEAD ; // wins any overlap
+					snakeGrid[headNextRow][headNextCol] <= S_HEAD ; // wins any overlap
 				end
 			end
 			else begin
 				tickCnt <= tickCnt + 23'd1 ;
 				// resolve random food placement between steps
-				if (applePending && candValid) begin
-					foodGrid[candRowSafe][candColSafe] <= F_APPLE ;
+				if (applePending && cellIsFree) begin
+					foodGrid[randRowSafe][randColSafe] <= F_APPLE ;
 					applePending <= 1'b0 ;
 				end
-				else if (cakeSpawnPending && candValid) begin
-					foodGrid[candRowSafe][candColSafe] <= F_CAKE ;
+				else if (cakeSpawnPending && cellIsFree) begin
+					foodGrid[randRowSafe][randColSafe] <= F_CAKE ;
 					cakeCount        <= cakeCount + 4'd1 ;
 					cakeSpawnPending <= 1'b0 ;
 				end
@@ -324,14 +331,14 @@ begin
 
 		// -- game over (gray) -----------------------------------------------
 		ST_OVER : begin
-			if (holdCnt >= RESTART_DELAY) gameState <= ST_INIT ;
-			else                          holdCnt   <= holdCnt + 27'd1 ;
+			if (freezeCnt >= RESTART_DELAY) gameState <= ST_INIT ;
+			else                            freezeCnt <= freezeCnt + 27'd1 ;
 		end
 
 		// -- win (cyan) -----------------------------------------------------
 		ST_WIN : begin
-			if (holdCnt >= WIN_HOLD) gameState <= ST_INIT ;
-			else                     holdCnt   <= holdCnt + 27'd1 ;
+			if (freezeCnt >= WIN_HOLD) gameState <= ST_INIT ;
+			else                       freezeCnt <= freezeCnt + 27'd1 ;
 		end
 
 		default : gameState <= ST_INIT ;
@@ -358,14 +365,14 @@ begin
 	end
 	else begin
 		RGBout <= TRANSPARENT_ENCODING ;
-		if (InsideRectangle) begin
-			if      (snakeGrid[rowIdx][colIdx] == S_HEAD)
+		if (insideBoard) begin
+			if      (snakeGrid[tileRow][tileCol] == S_HEAD)
 				RGBout <= (gameState == ST_PLAY || gameState == ST_INIT) ? COLOR_HEAD : snakeColor ;
-			else if (snakeGrid[rowIdx][colIdx] == S_BODY)
+			else if (snakeGrid[tileRow][tileCol] == S_BODY)
 				RGBout <= snakeColor ;
-			else if (foodGrid [rowIdx][colIdx] == F_APPLE) RGBout <= COLOR_APPLE ;
-			else if (foodGrid [rowIdx][colIdx] == F_CAKE)  RGBout <= COLOR_CAKE ;
-			else                                           RGBout <= TRANSPARENT_ENCODING ;
+			else if (foodGrid [tileRow][tileCol] == F_APPLE) RGBout <= COLOR_APPLE ;
+			else if (foodGrid [tileRow][tileCol] == F_CAKE)  RGBout <= COLOR_CAKE ;
+			else                                             RGBout <= TRANSPARENT_ENCODING ;
 		end
 	end
 end

@@ -564,7 +564,7 @@ agreement for further details.
 )
 (symbol
 	(rect -248 688 56 880)
-	(text "HART_DISPLAY" (rect 5 0 99 19)(font "Intel Clear" (font_size 8)))
+	(text "SnakeDisplay" (rect 5 0 99 19)(font "Intel Clear" (font_size 8)))
 	(text "inst12" (rect 8 171 36 188)(font "Intel Clear" ))
 	(port
 		(pt 0 32)

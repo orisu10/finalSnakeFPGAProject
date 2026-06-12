@@ -386,8 +386,8 @@ set_global_assignment -name SYSTEMVERILOG_FILE RTL/VGA/smileyBitMap.sv
 set_global_assignment -name SYSTEMVERILOG_FILE RTL/VGA/square_object.sv
 set_global_assignment -name SYSTEMVERILOG_FILE RTL/VGA/back_ground_draw.sv
 set_global_assignment -name SYSTEMVERILOG_FILE RTL/VGA/square_Hart_object.sv
-set_global_assignment -name SYSTEMVERILOG_FILE RTL/VGA/HartsMatrixBitMap.sv
-set_global_assignment -name BDF_FILE RTL/VGA/HART_DISPLAY.bdf
+set_global_assignment -name SYSTEMVERILOG_FILE RTL/VGA/SnakeBoard.sv
+set_global_assignment -name BDF_FILE RTL/VGA/SnakeDisplay.bdf
 set_global_assignment -name SYSTEMVERILOG_FILE RTL/VGA/smiley_move.sv
 set_global_assignment -name SYSTEMVERILOG_FILE RTL/VGA/objects_mux.sv
 set_global_assignment -name SYSTEMVERILOG_FILE RTL/VGA/VGA_Controller.sv

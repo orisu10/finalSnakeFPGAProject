@@ -40,9 +40,9 @@ Each on‑screen object is a module that, given the current `pixelX/pixelY`, out
 
 The whole pipeline is registered and runs on the pixel clock — keep added rendering logic in that clock domain and matched in latency.
 
-### The game board (`RTL/VGA/HartsMatrixBitMap.sv`)
-This module — still named `HartsMatrixBitMap` and instantiated via `RTL/VGA/HART_DISPLAY.bdf` — was the heart matrix and is now the **Snake board**. It is a **20×15 grid of 32×32 px tiles** (full screen). Data model:
-- `snakeCol[i]/snakeRow[i]` + length — the ordered body. Movement = a **shift**: each segment takes the previous one's (x,y); the head advances one cell.
+### The game board (`RTL/VGA/SnakeBoard.sv`)
+This module — `SnakeBoard`, instantiated via the wrapper sheet `RTL/VGA/SnakeDisplay.bdf` — was the heart matrix (originally `HartsMatrixBitMap` inside `HART_DISPLAY.bdf`) and is now the **Snake board**. It is a **20×15 grid of 32×32 px tiles** (full screen). Its ports were renamed off the skeleton names: `pixelX/pixelY` (was `offsetX/offsetY`), `insideBoard` (was `InsideRectangle`), `dirKey` (was `keyPad`), and the two unused legacy ports `unusedRandom/unusedCollision`. Data model:
+- `snakeCol[i]/snakeRow[i]` + `snakeLen` — the ordered body. Movement = a **shift**: each segment takes the previous one's (x,y); the head advances one cell.
 - `foodGrid` (apple/cake) kept **separate** from `snakeGrid` (head/body) so the snake gliding over food doesn't erase it; eating clears `foodGrid`. The two grids are composited at render time (snake over food over background).
 - `snakeGrid` is updated incrementally each game tick (free tail cell, demote old head to body, set new head) so per‑pixel rendering is an O(1) grid lookup. A game tick is the pixel clock divided down (`TICK_DIV`).
 

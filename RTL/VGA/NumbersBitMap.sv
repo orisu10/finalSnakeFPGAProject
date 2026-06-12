@@ -1,17 +1,19 @@
 //
 // coding convention dudy December 2018
 // (c) Technion IIT, Department of Electrical Engineering 2025
-// generating a number bitmap 
+//
+// Number bitmap: draws two BCD digits from numbers.mif.  In the Snake game it
+// is fed the SCORE on its `digit` port and shows it as the top-left counter.
+// The left 32 px show the tens digit, the right 32 px show the ones digit.
 
 
-
-module NumbersBitMap	(	
+module NumbersBitMap	(
 					input		logic	clk,
 					input		logic	resetN,
-					input 	logic	[10:0] offsetX,// offset from top left  position 
-					input 	logic	[10:0] offsetY,
-					input		logic	InsideRectangle, //input that the pixel is within a bracket
-					input 	logic	[7:0] digit, // two BCD digits to display: {tens[7:4], ones[3:0]}
+					input 	logic	[10:0] offsetX,// pixel X offset inside this object's box
+					input 	logic	[10:0] offsetY,// pixel Y offset inside this object's box
+					input		logic	InsideRectangle, //high while the pixel is within the box
+					input 	logic	[7:0] digit, // score to display: {tens[7:4], ones[3:0]}
 
 					output	logic				drawingRequest, //output that the pixel should be dispalyed
 					output	logic	[7:0]		RGBout
